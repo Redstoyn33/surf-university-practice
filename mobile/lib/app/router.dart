@@ -8,6 +8,7 @@ import '../features/auth/providers/auth_provider.dart';
 import '../features/schedule/screens/schedule_screen.dart';
 import '../features/masters/screens/master_profile_screen.dart';
 import '../features/programs/screens/program_detail_screen.dart';
+import '../features/booking/screens/slot_detail_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authNotifierProvider);
@@ -52,8 +53,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: 'slots/:slotId',
-                builder: (_, state) => _PlaceholderScreen(
-                  title: 'Слот #${state.pathParameters['slotId']}',
+                builder: (_, state) => SlotDetailScreen(
+                  slotId: int.parse(state.pathParameters['slotId']!),
                 ),
               ),
               GoRoute(
