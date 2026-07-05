@@ -3,9 +3,15 @@ package internal
 import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+
+	"github.com/glini/backend/internal/handler"
 )
 
-func NewRouter() *chi.Mux {
+type RouterDeps struct {
+	AuthHandler *handler.AuthHandler
+}
+
+func NewRouter(deps RouterDeps) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(chimw.Logger)
@@ -13,6 +19,8 @@ func NewRouter() *chi.Mux {
 	r.Use(chimw.RealIP)
 
 	r.Route("/auth", func(r chi.Router) {
+		r.Post("/register", deps.AuthHandler.Register)
+		r.Post("/login", deps.AuthHandler.Login)
 	})
 
 	r.Route("/slots", func(r chi.Router) {

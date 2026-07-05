@@ -11,7 +11,9 @@ import (
 
 	"github.com/glini/backend/internal"
 	"github.com/glini/backend/internal/config"
+	"github.com/glini/backend/internal/handler"
 	"github.com/glini/backend/internal/repository"
+	"github.com/glini/backend/internal/service"
 )
 
 func main() {
@@ -27,7 +29,13 @@ func main() {
 	}
 	defer db.Close()
 
-	router := internal.NewRouter()
+	clientRepo := repository.NewClientRepo(db)
+	authService := service.NewAuthService(clientRepo, cfg.AuthSecret)
+	authHandler := handler.NewAuthHandler(authService)
+
+	router := internal.NewRouter(internal.RouterDeps{
+		AuthHandler: authHandler,
+	})
 
 	srv := &http.Server{
 		Addr:         cfg.Addr,
