@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/auth/screens/registration_screen.dart';
 import '../features/auth/providers/auth_provider.dart';
+import '../features/schedule/screens/schedule_screen.dart';
+import '../features/masters/screens/master_profile_screen.dart';
+import '../features/programs/screens/program_detail_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authNotifierProvider);
@@ -45,7 +48,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/schedule',
-            builder: (_, __) => const _PlaceholderScreen(title: 'Расписание'),
+            builder: (_, __) => const ScheduleScreen(),
             routes: [
               GoRoute(
                 path: 'slots/:slotId',
@@ -55,14 +58,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
               GoRoute(
                 path: 'masters/:id',
-                builder: (_, state) => _PlaceholderScreen(
-                  title: 'Мастер #${state.pathParameters['id']}',
+                builder: (_, state) => MasterProfileScreen(
+                  id: int.parse(state.pathParameters['id']!),
                 ),
               ),
               GoRoute(
                 path: 'programs/:id',
-                builder: (_, state) => _PlaceholderScreen(
-                  title: 'Программа #${state.pathParameters['id']}',
+                builder: (_, state) => ProgramDetailScreen(
+                  id: int.parse(state.pathParameters['id']!),
                 ),
               ),
             ],
@@ -112,7 +115,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.weekend, size: 80, color: Theme.of(context).colorScheme.primary),
+            Icon(Icons.weekend,
+                size: 80, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 16),
             Text('Глини', style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 24),
@@ -134,8 +138,10 @@ class _TabScaffold extends StatelessWidget {
       body: child,
       bottomNavigationBar: NavigationBar(
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.calendar_month), label: 'Расписание'),
-          NavigationDestination(icon: Icon(Icons.book_online), label: 'Мои записи'),
+          NavigationDestination(
+              icon: Icon(Icons.calendar_month), label: 'Расписание'),
+          NavigationDestination(
+              icon: Icon(Icons.book_online), label: 'Мои записи'),
         ],
         selectedIndex: 0,
         onDestinationSelected: (i) {
@@ -155,7 +161,8 @@ class _PlaceholderScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(title)),
-      body: Center(child: Text(title, style: Theme.of(context).textTheme.headlineSmall)),
+      body: Center(
+          child: Text(title, style: Theme.of(context).textTheme.headlineSmall)),
     );
   }
 }
