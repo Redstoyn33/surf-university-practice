@@ -97,6 +97,27 @@ flutter doctor -v
 flutter run -d '<DEVICE_NAME>'
 ```
 
+## Сборка APK
+
+Собрать APK без запуска на устройство:
+
+```bash
+cd mobile
+
+# Debug APK (быстрая сборка, подписано debug-ключом)
+flutter build apk --debug
+
+# Release APK (оптимизировано, требует keystore)
+flutter build apk --release
+
+# APK будет в: build/app/outputs/flutter-apk/app-debug.apk
+#                        build/app/outputs/flutter-apk/app-release.apk
+
+# Установить готовый APK на устройство:
+adb connect <IP:PORT>
+adb install build/app/outputs/flutter-apk/app-debug.apk
+```
+
 ### API URL
 
 По умолчанию мобилка стучится на `http://192.168.1.101:8080` (хост-машина в локальной сети).  
