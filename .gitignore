@@ -28,3 +28,6 @@ Thumbs.db
 # Env
 .env
 *.local
+
+# Backend data
+backend/data/

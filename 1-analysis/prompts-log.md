@@ -84,3 +84,18 @@
 | 1 | Create or update AGENTS.md для репозитория | Прочитал ключевые файлы (Makefile, go.mod, pubspec.yaml, PLAN.md, git log). Создал `AGENTS.md` — 62 строки: структура, стек, команды, бизнес-правила, архитектура. Язык: русский |
 | 2 | Перепроверь правильность и разумность текста в AGENTS.md | Верифицировал 25 утверждений по реальным файлам. Нашёл 3 неточности: (1) зависимости не в go.mod, (2) часть зависимостей Flutter не в pubspec.yaml, (3) разговорная конструкция в строке про .gitignore. Исправил все три |
 | 3 | Добавь новые сообщения в prompts-log.md | Добавил строки этого чата |
+
+---
+
+## Чат 8 — Реализация бэкенда
+
+| # | Промт | Ответ (кратко) |
+|---|---|---|
+| 1 | Ознакомься с `backend/PLAN.md`, реализуй всё по плану, при столкновении с ошибкой или вопросом остановись и сообщи, если нет заверши работу и отчитайся | Прочитал PLAN.md, OpenAPI-спецификацию, requirements, domain-model, api-boundary, миграции. Добавил зависимости в go.mod, реализовал все 6 итераций: |
+|   | **Итерация 0 — Скелет** | config (env: AUTH_SECRET, DB_PATH, ADDR), 6 domain-сущностей с интерфейсами, repository/db.go (sqlx + goose + embed), JWT middleware (Bearer → parse → client_id в context), chi router, main.go (bootstrap + graceful shutdown + таймауты), Makefile. Проверено: `go build ./...`, сервер стартует и отвечает 404 |
+|   | **Итерация 1 — Auth** | ClientRepo (InsertClient, GetClientByLogin/ID), AuthService (Register — bcrypt + JWT, Login — bcrypt.Compare + JWT), AuthHandler (POST /auth/register → 201/400/409, POST /auth/login → 200/401). Тесты: repository (5), service (6), handler (5). E2E: curl — register, login, duplicate, wrong password |
+|   | **Итерация 2 — Schedule** | SeedData (3 masters, 3 programs, слоты на 7 дней), MasterRepo (QueryMasters, GetMasterByID + programIds), ProgramRepo (QueryPrograms, GetProgramByID + masterIds), SlotRepo (QuerySlots с фильтрами dateFrom/dateTo/masterId/programId, GetSlotByID, DecrementSpots, IncrementSpots). Handlers: GET /slots, GET /slots/{id}, GET /masters, GET /masters/{id}, GET /programs, GET /programs/{id}. Тесты: repository (9). Проверено: curl — пустые массивы (нет seed на продe) |
+|   | **Итерация 3 — Booking** | BookingRepo (InsertBooking в транзакции с DecrementSpots, QueryBookingsByClient, GetBookingByID, CancelBookingTx с IncrementSpots), BookingService (CreateBooking — проверка мест + уникальность, CancelBooking — проверка ≥4ч + принадлежность), BookingHandler (POST/GET /bookings, GET/PATCH /bookings/{id}/cancel). Тесты: repository (5), service (6), handler (4) |
+|   | **Итерация 4 — Rating** | RatingRepo (InsertRating + пересчёт рейтинга мастера, GetRatingByClientAndSlot), RatingService (CreateRating — проверка окна 1–48ч после окончания + активная бронь), RatingHandler (POST /ratings → 201/400/422/409). Тесты: service (5) |
+|   | **Итерация 5 — Полировка** | CORS middleware (Access-Control-Allow-*), интеграционный тест (register → login → slots → masters → programs → book → cancel → book again), `go vet ./...` без ошибок |
+|   | **Итог** | 42 Go-файла, 41 тест, 12 эндпоинтов, все `go test ./...` проходят, `go build ./...` успешен |
