@@ -29,6 +29,16 @@ func main() {
 	}
 	defer db.Close()
 
+	var count int
+	db.Get(&count, "SELECT COUNT(*) FROM masters")
+	if count == 0 {
+		if err := repository.SeedData(db); err != nil {
+			slog.Error("failed to seed data", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("seed data inserted")
+	}
+
 	clientRepo := repository.NewClientRepo(db)
 	masterRepo := repository.NewMasterRepo(db)
 	programRepo := repository.NewProgramRepo(db)
