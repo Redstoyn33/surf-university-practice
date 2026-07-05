@@ -11,6 +11,7 @@ import '../features/programs/screens/program_detail_screen.dart';
 import '../features/booking/screens/slot_detail_screen.dart';
 import '../features/booking/screens/my_bookings_screen.dart';
 import '../features/booking/screens/booking_detail_screen.dart';
+import '../features/ratings/screens/rate_master_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authNotifierProvider);
@@ -85,7 +86,16 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
               GoRoute(
                 path: 'rate',
-                builder: (_, __) => const _PlaceholderScreen(title: 'Оценка'),
+                builder: (_, state) {
+                  final q = state.uri.queryParameters;
+                  return RateMasterScreen(
+                    masterId: int.parse(q['masterId'] ?? '0'),
+                    slotId: int.parse(q['slotId'] ?? '0'),
+                    masterName: q['masterName'] ?? '',
+                    programName: q['programName'] ?? '',
+                    slotDate: q['slotDate'] ?? '',
+                  );
+                },
               ),
             ],
           ),
@@ -156,16 +166,4 @@ class _TabScaffold extends StatelessWidget {
   }
 }
 
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  const _PlaceholderScreen({required this.title});
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-          child: Text(title, style: Theme.of(context).textTheme.headlineSmall)),
-    );
-  }
-}
