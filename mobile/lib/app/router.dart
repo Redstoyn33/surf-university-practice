@@ -44,59 +44,64 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/register',
         builder: (_, __) => const RegistrationScreen(),
       ),
-      ShellRoute(
-        builder: (_, __, child) => _TabScaffold(child: child),
-        routes: [
-          GoRoute(
-            path: '/',
-            redirect: (_, __) => '/schedule',
-          ),
-          GoRoute(
-            path: '/schedule',
-            builder: (_, __) => const ScheduleScreen(),
+      StatefulShellRoute.indexedStack(
+        builder: (_, __, navigationShell) =>
+            _TabScaffold(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
             routes: [
               GoRoute(
-                path: 'slots/:slotId',
-                builder: (_, state) => SlotDetailScreen(
-                  slotId: int.parse(state.pathParameters['slotId']!),
-                ),
-              ),
-              GoRoute(
-                path: 'masters/:id',
-                builder: (_, state) => MasterProfileScreen(
-                  id: int.parse(state.pathParameters['id']!),
-                ),
-              ),
-              GoRoute(
-                path: 'programs/:id',
-                builder: (_, state) => ProgramDetailScreen(
-                  id: int.parse(state.pathParameters['id']!),
-                ),
+                path: '/schedule',
+                builder: (_, __) => const ScheduleScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'slots/:slotId',
+                    builder: (_, state) => SlotDetailScreen(
+                      slotId: int.parse(state.pathParameters['slotId']!),
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'masters/:id',
+                    builder: (_, state) => MasterProfileScreen(
+                      id: int.parse(state.pathParameters['id']!),
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'programs/:id',
+                    builder: (_, state) => ProgramDetailScreen(
+                      id: int.parse(state.pathParameters['id']!),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          GoRoute(
-            path: '/my-bookings',
-            builder: (_, __) => const MyBookingsScreen(),
+          StatefulShellBranch(
             routes: [
               GoRoute(
-                path: 'bookings/:id',
-                builder: (_, state) => BookingDetailScreen(
-                  bookingId: int.parse(state.pathParameters['id']!),
-                ),
-              ),
-              GoRoute(
-                path: 'rate',
-                builder: (_, state) {
-                  final q = state.uri.queryParameters;
-                  return RateMasterScreen(
-                    masterId: int.parse(q['masterId'] ?? '0'),
-                    slotId: int.parse(q['slotId'] ?? '0'),
-                    masterName: q['masterName'] ?? '',
-                    programName: q['programName'] ?? '',
-                    slotDate: q['slotDate'] ?? '',
-                  );
-                },
+                path: '/my-bookings',
+                builder: (_, __) => const MyBookingsScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'bookings/:id',
+                    builder: (_, state) => BookingDetailScreen(
+                      bookingId: int.parse(state.pathParameters['id']!),
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'rate',
+                    builder: (_, state) {
+                      final q = state.uri.queryParameters;
+                      return RateMasterScreen(
+                        masterId: int.parse(q['masterId'] ?? '0'),
+                        slotId: int.parse(q['slotId'] ?? '0'),
+                        masterName: q['masterName'] ?? '',
+                        programName: q['programName'] ?? '',
+                        slotDate: q['slotDate'] ?? '',
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),
@@ -152,16 +157,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 }
 
 class _TabScaffold extends StatelessWidget {
-  final Widget child;
-  const _TabScaffold({required this.child});
+  final StatefulNavigationShell navigationShell;
+  const _TabScaffold({required this.navigationShell});
 
   @override
   Widget build(BuildContext context) {
-    final location = GoRouterState.of(context).uri.toString();
-    final selectedIndex = location.startsWith('/my-bookings') ? 1 : 0;
-
     return Scaffold(
-      body: child,
+      body: navigationShell,
       bottomNavigationBar: NavigationBar(
         destinations: const [
           NavigationDestination(
@@ -169,11 +171,8 @@ class _TabScaffold extends StatelessWidget {
           NavigationDestination(
               icon: Icon(Icons.book_online), label: 'Мои записи'),
         ],
-        selectedIndex: selectedIndex,
-        onDestinationSelected: (i) {
-          if (i == 0) context.go('/schedule');
-          if (i == 1) context.go('/my-bookings');
-        },
+        selectedIndex: navigationShell.currentIndex,
+        onDestinationSelected: navigationShell.goBranch,
       ),
     );
   }

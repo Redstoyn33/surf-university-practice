@@ -14,13 +14,8 @@ class ScheduleScreen extends ConsumerStatefulWidget {
 }
 
 class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
-  DateTime _selectedDate = DateTime.now();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSlots();
-  }
+  DateTime _selectedDate =
+      DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
 
   void _loadSlots() {
     final from = _formatDate(_selectedDate);
@@ -34,6 +29,16 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   @override
   Widget build(BuildContext context) {
     final slotsAsync = ref.watch(slotsNotifierProvider);
+
+    if (slotsAsync is AsyncData) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final current = ref.read(slotsNotifierProvider);
+        if (current is AsyncData && current.requireValue.isEmpty) {
+          _loadSlots();
+        }
+      });
+    }
 
     return RefreshIndicator(
       onRefresh: () async => _loadSlots(),
