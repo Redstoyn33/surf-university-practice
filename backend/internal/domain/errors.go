@@ -8,4 +8,5 @@ var (
 	ErrForbidden  = errors.New("forbidden")
 	ErrValidation = errors.New("validation")
 	ErrConflict   = errors.New("conflict")
+	ErrNotActive  = errors.New("not active")
 )

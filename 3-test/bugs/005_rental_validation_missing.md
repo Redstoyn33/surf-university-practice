@@ -22,10 +22,11 @@
 `slot.RentalAvailable` перед установкой `rentalSelected`.
 В `internal/repository/booking.go:InsertBooking` нет соответствующей проверки.
 
-## Предлагаемое исправление
-Добавить проверку в `CreateBooking`:
-```go
-if rentalSelected && !slot.RentalAvailable {
-    return domain.Booking{}, fmt.Errorf("rental not available for this slot: %w", domain.ErrValidation)
-}
-```
+## Исправление
+Добавлена проверка `rentalSelected && !slot.RentalAvailable` в
+`CreateBooking` → возвращает `ErrValidation`. Handler создаёт
+`400 "rental not available"`.
+
+**Изменённые файлы:**
+- `internal/service/booking.go` — проверка после `availableSpots`
+- `internal/handler/booking.go` — блок `errors.Is(err, domain.ErrValidation)` в Create

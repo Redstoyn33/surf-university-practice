@@ -31,6 +31,10 @@ func (s *BookingService) CreateBooking(ctx context.Context, clientID, slotID int
 		return domain.Booking{}, fmt.Errorf("no available spots: %w", domain.ErrConflict)
 	}
 
+	if rentalSelected && !slot.RentalAvailable {
+		return domain.Booking{}, fmt.Errorf("rental not available: %w", domain.ErrValidation)
+	}
+
 	booking, err := s.bookingRepo.InsertBooking(ctx, clientID, slotID, rentalSelected)
 	if err != nil {
 		if errors.Is(err, domain.ErrConflict) {
@@ -56,7 +60,7 @@ func (s *BookingService) CancelBooking(ctx context.Context, bookingID, clientID 
 	}
 
 	if booking.Status != "активна" {
-		return domain.Booking{}, fmt.Errorf("booking is not active: %w", domain.ErrValidation)
+		return domain.Booking{}, fmt.Errorf("booking is not active: %w", domain.ErrNotActive)
 	}
 
 	if booking.Slot == nil || booking.Slot.DateTime == "" {

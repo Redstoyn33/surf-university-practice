@@ -30,6 +30,12 @@ if errors.Is(err, domain.ErrValidation) {
 }
 ```
 
-## Предлагаемое исправление
-Либо разделить ошибки (ErrValidation vs новая ErrNotActive), либо проверять
-текст ошибки, либо проверять статус брони в handler и выбирать сообщение.
+## Исправление
+Добавлен sentinel error `domain.ErrNotActive` → handler проверяет его
+и возвращает `422 "бронь уже отменена"` вместо универсального сообщения
+про 4 часа.
+
+**Изменённые файлы:**
+- `internal/domain/errors.go` — добавлен `ErrNotActive`
+- `internal/service/booking.go` — статус не «активна» → `ErrNotActive`
+- `internal/handler/booking.go` — новый блок `errors.Is(err, domain.ErrNotActive)`

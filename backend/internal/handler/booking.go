@@ -53,6 +53,10 @@ func (h *BookingHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "нет свободных мест или двойная бронь")
 			return
 		}
+		if errors.Is(err, domain.ErrValidation) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "внутренняя ошибка")
 		return
 	}
@@ -127,6 +131,10 @@ func (h *BookingHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, domain.ErrForbidden) {
 			writeError(w, http.StatusNotFound, "бронь не найдена")
+			return
+		}
+		if errors.Is(err, domain.ErrNotActive) {
+			writeError(w, http.StatusUnprocessableEntity, "бронь уже отменена")
 			return
 		}
 		if errors.Is(err, domain.ErrValidation) {
