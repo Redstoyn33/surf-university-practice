@@ -7,6 +7,7 @@ import '../features/auth/screens/registration_screen.dart';
 import '../features/auth/providers/auth_provider.dart';
 import '../features/schedule/screens/schedule_screen.dart';
 import '../features/masters/screens/master_profile_screen.dart';
+import '../features/masters/screens/masters_screen.dart';
 import '../features/programs/screens/program_detail_screen.dart';
 import '../features/booking/screens/slot_detail_screen.dart';
 import '../features/booking/screens/my_bookings_screen.dart';
@@ -69,6 +70,22 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'programs/:id',
                     builder: (_, state) => ProgramDetailScreen(
+                      id: int.parse(state.pathParameters['id']!),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/masters',
+                builder: (_, __) => const MastersScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (_, state) => MasterProfileScreen(
                       id: int.parse(state.pathParameters['id']!),
                     ),
                   ),
@@ -168,6 +185,8 @@ class _TabScaffold extends StatelessWidget {
         destinations: const [
           NavigationDestination(
               icon: Icon(Icons.calendar_month), label: 'Расписание'),
+          NavigationDestination(
+              icon: Icon(Icons.people), label: 'Мастера'),
           NavigationDestination(
               icon: Icon(Icons.book_online), label: 'Мои записи'),
         ],
