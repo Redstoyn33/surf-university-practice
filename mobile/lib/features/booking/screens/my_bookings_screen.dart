@@ -41,6 +41,19 @@ class _MyBookingsScreenState extends ConsumerState<MyBookingsScreen>
     ref.read(myBookingsProvider.notifier).load(status: status);
   }
 
+  void _navigateToRate({
+    required int bookingId,
+    required String masterName,
+    required String programName,
+    required String slotDate,
+    required int masterId,
+    required int slotId,
+  }) {
+    context.push(
+      '/my-bookings/rate?masterId=$masterId&slotId=$slotId&masterName=${Uri.encodeComponent(masterName)}&programName=${Uri.encodeComponent(programName)}&slotDate=${Uri.encodeComponent(slotDate)}',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bookingsAsync = ref.watch(myBookingsProvider);
@@ -77,10 +90,23 @@ class _MyBookingsScreenState extends ConsumerState<MyBookingsScreen>
             return ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: bookings.length,
-              itemBuilder: (_, i) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: BookingCard(booking: bookings[i]),
-              ),
+              itemBuilder: (_, i) {
+                final booking = bookings[i];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: BookingCard(
+                    booking: booking,
+                    onRate: () => _navigateToRate(
+                      bookingId: booking.id,
+                      masterId: booking.slot.master.id,
+                      slotId: booking.slot.id,
+                      masterName: booking.slot.master.name,
+                      programName: booking.slot.program.name,
+                      slotDate: booking.slot.dateTime.substring(0, 10),
+                    ),
+                  ),
+                );
+              },
             );
           },
         ),

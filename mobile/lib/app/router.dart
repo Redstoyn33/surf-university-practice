@@ -147,6 +147,9 @@ class _TabScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final location = GoRouterState.of(context).uri.toString();
+    final selectedIndex = location.startsWith('/my-bookings') ? 1 : 0;
+
     return Scaffold(
       body: child,
       bottomNavigationBar: NavigationBar(
@@ -156,7 +159,7 @@ class _TabScaffold extends StatelessWidget {
           NavigationDestination(
               icon: Icon(Icons.book_online), label: 'Мои записи'),
         ],
-        selectedIndex: 0,
+        selectedIndex: selectedIndex,
         onDestinationSelected: (i) {
           if (i == 0) context.go('/schedule');
           if (i == 1) context.go('/my-bookings');

@@ -4,8 +4,17 @@ import '../../../core/models/booking.dart';
 
 class BookingCard extends StatelessWidget {
   final Booking booking;
+  final VoidCallback? onRate;
 
-  const BookingCard({super.key, required this.booking});
+  const BookingCard({super.key, required this.booking, this.onRate});
+
+  bool get _isPast {
+    try {
+      return DateTime.parse(booking.slot.dateTime).isBefore(DateTime.now());
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +90,20 @@ class BookingCard extends StatelessWidget {
                 Text(
                   'Причина: ${booking.cancellationReason}',
                   style: theme.textTheme.bodySmall?.copyWith(color: Colors.red),
+                ),
+              ],
+              if (_isPast && booking.isActive) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: onRate,
+                    icon: const Icon(Icons.star_outline, size: 16),
+                    label: const Text('Оценить мастера'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: theme.colorScheme.primary,
+                    ),
+                  ),
                 ),
               ],
             ],
