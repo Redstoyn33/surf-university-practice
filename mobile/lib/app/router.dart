@@ -19,15 +19,20 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/splash',
     redirect: (context, state) {
+      if (authState is AsyncLoading) return null;
+
       final isLoggedIn = authState is AsyncData && authState.value != null;
+
+      if (state.matchedLocation == '/splash') {
+        return isLoggedIn ? '/schedule' : '/login';
+      }
+
       final isAuthRoute = state.matchedLocation == '/login' ||
-          state.matchedLocation == '/register' ||
-          state.matchedLocation == '/splash';
+          state.matchedLocation == '/register';
 
       if (!isLoggedIn && !isAuthRoute) return '/login';
-      if (isLoggedIn && isAuthRoute && state.matchedLocation != '/splash') {
-        return '/schedule';
-      }
+      if (isLoggedIn && isAuthRoute) return '/schedule';
+
       return null;
     },
     routes: [
