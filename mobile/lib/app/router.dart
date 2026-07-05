@@ -9,6 +9,8 @@ import '../features/schedule/screens/schedule_screen.dart';
 import '../features/masters/screens/master_profile_screen.dart';
 import '../features/programs/screens/program_detail_screen.dart';
 import '../features/booking/screens/slot_detail_screen.dart';
+import '../features/booking/screens/my_bookings_screen.dart';
+import '../features/booking/screens/booking_detail_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authNotifierProvider);
@@ -73,12 +75,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/my-bookings',
-            builder: (_, __) => const _PlaceholderScreen(title: 'Мои записи'),
+            builder: (_, __) => const MyBookingsScreen(),
             routes: [
               GoRoute(
                 path: 'bookings/:id',
-                builder: (_, state) => _PlaceholderScreen(
-                  title: 'Бронь #${state.pathParameters['id']}',
+                builder: (_, state) => BookingDetailScreen(
+                  bookingId: int.parse(state.pathParameters['id']!),
                 ),
               ),
               GoRoute(
