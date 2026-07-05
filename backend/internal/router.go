@@ -5,6 +5,7 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/glini/backend/internal/handler"
+	"github.com/glini/backend/internal/middleware"
 )
 
 type RouterDeps struct {
@@ -12,6 +13,8 @@ type RouterDeps struct {
 	SlotHandler    *handler.SlotHandler
 	MasterHandler  *handler.MasterHandler
 	ProgramHandler *handler.ProgramHandler
+	BookingHandler *handler.BookingHandler
+	AuthSecret     string
 }
 
 func NewRouter(deps RouterDeps) *chi.Mux {
@@ -20,6 +23,8 @@ func NewRouter(deps RouterDeps) *chi.Mux {
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.RealIP)
+
+	authMw := middleware.Auth(deps.AuthSecret)
 
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/register", deps.AuthHandler.Register)
@@ -32,6 +37,11 @@ func NewRouter(deps RouterDeps) *chi.Mux {
 	})
 
 	r.Route("/bookings", func(r chi.Router) {
+		r.Use(authMw)
+		r.Post("/", deps.BookingHandler.Create)
+		r.Get("/", deps.BookingHandler.ListMy)
+		r.Get("/{id}", deps.BookingHandler.Get)
+		r.Patch("/{id}/cancel", deps.BookingHandler.Cancel)
 	})
 
 	r.Route("/ratings", func(r chi.Router) {

@@ -35,17 +35,22 @@ func main() {
 	slotRepo := repository.NewSlotRepo(db, masterRepo, programRepo)
 
 	authService := service.NewAuthService(clientRepo, cfg.AuthSecret)
+	bookingRepo := repository.NewBookingRepo(db, slotRepo, masterRepo, programRepo)
+	bookingService := service.NewBookingService(bookingRepo, slotRepo)
 
 	authHandler := handler.NewAuthHandler(authService)
 	slotHandler := handler.NewSlotHandler(slotRepo)
 	masterHandler := handler.NewMasterHandler(masterRepo)
 	programHandler := handler.NewProgramHandler(programRepo)
+	bookingHandler := handler.NewBookingHandler(bookingService)
 
 	router := internal.NewRouter(internal.RouterDeps{
 		AuthHandler:    authHandler,
 		SlotHandler:    slotHandler,
 		MasterHandler:  masterHandler,
 		ProgramHandler: programHandler,
+		BookingHandler: bookingHandler,
+		AuthSecret:     cfg.AuthSecret,
 	})
 
 	srv := &http.Server{
