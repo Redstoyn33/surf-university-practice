@@ -8,7 +8,10 @@ import (
 )
 
 type RouterDeps struct {
-	AuthHandler *handler.AuthHandler
+	AuthHandler    *handler.AuthHandler
+	SlotHandler    *handler.SlotHandler
+	MasterHandler  *handler.MasterHandler
+	ProgramHandler *handler.ProgramHandler
 }
 
 func NewRouter(deps RouterDeps) *chi.Mux {
@@ -24,6 +27,8 @@ func NewRouter(deps RouterDeps) *chi.Mux {
 	})
 
 	r.Route("/slots", func(r chi.Router) {
+		r.Get("/", deps.SlotHandler.ListSlots)
+		r.Get("/{id}", deps.SlotHandler.GetSlot)
 	})
 
 	r.Route("/bookings", func(r chi.Router) {
@@ -33,9 +38,13 @@ func NewRouter(deps RouterDeps) *chi.Mux {
 	})
 
 	r.Route("/masters", func(r chi.Router) {
+		r.Get("/", deps.MasterHandler.List)
+		r.Get("/{id}", deps.MasterHandler.Get)
 	})
 
 	r.Route("/programs", func(r chi.Router) {
+		r.Get("/", deps.ProgramHandler.List)
+		r.Get("/{id}", deps.ProgramHandler.Get)
 	})
 
 	return r

@@ -30,11 +30,22 @@ func main() {
 	defer db.Close()
 
 	clientRepo := repository.NewClientRepo(db)
+	masterRepo := repository.NewMasterRepo(db)
+	programRepo := repository.NewProgramRepo(db)
+	slotRepo := repository.NewSlotRepo(db, masterRepo, programRepo)
+
 	authService := service.NewAuthService(clientRepo, cfg.AuthSecret)
+
 	authHandler := handler.NewAuthHandler(authService)
+	slotHandler := handler.NewSlotHandler(slotRepo)
+	masterHandler := handler.NewMasterHandler(masterRepo)
+	programHandler := handler.NewProgramHandler(programRepo)
 
 	router := internal.NewRouter(internal.RouterDeps{
-		AuthHandler: authHandler,
+		AuthHandler:    authHandler,
+		SlotHandler:    slotHandler,
+		MasterHandler:  masterHandler,
+		ProgramHandler: programHandler,
 	})
 
 	srv := &http.Server{
