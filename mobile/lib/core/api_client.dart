@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'storage.dart';
@@ -61,9 +63,11 @@ class ErrorInterceptor extends Interceptor {
 class ApiClient {
   late final Dio dio;
 
-  ApiClient(LocalStorage storage) {
+  ApiClient(LocalStorage storage, {String? baseUrl}) {
+    final host = baseUrl ??
+        (Platform.isAndroid ? 'http://10.0.2.2:8080' : 'http://localhost:8080');
     dio = Dio(BaseOptions(
-      baseUrl: 'http://10.0.2.2:8080',
+      baseUrl: host,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       headers: {'Content-Type': 'application/json'},
@@ -77,7 +81,9 @@ class ApiClient {
 
 final localStorageProvider = Provider<LocalStorage>((_) => LocalStorage());
 
+const apiHostOverride = 'http://192.168.1.101:8080';
+
 final apiClientProvider = Provider<ApiClient>((ref) {
   final storage = ref.read(localStorageProvider);
-  return ApiClient(storage);
+  return ApiClient(storage, baseUrl: apiHostOverride);
 });
