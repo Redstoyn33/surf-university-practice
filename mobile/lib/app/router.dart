@@ -2,34 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/auth/screens/login_screen.dart';
+import '../features/auth/screens/registration_screen.dart';
+import '../features/auth/providers/auth_provider.dart';
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  final authState = ref.watch(authNotifierProvider);
+
   return GoRouter(
     initialLocation: '/splash',
     redirect: (context, state) {
-      final isLoggedIn = authState.isAuthenticated;
+      final isLoggedIn = authState is AsyncData && authState.value != null;
       final isAuthRoute = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register' ||
           state.matchedLocation == '/splash';
 
       if (!isLoggedIn && !isAuthRoute) return '/login';
       if (isLoggedIn && isAuthRoute && state.matchedLocation != '/splash') {
-        return '/';
+        return '/schedule';
       }
       return null;
     },
     routes: [
       GoRoute(
         path: '/splash',
-        builder: (_, __) => const _PlaceholderScreen(title: 'Загрузка...'),
+        builder: (_, __) => const SplashScreen(),
       ),
       GoRoute(
         path: '/login',
-        builder: (_, __) => const _PlaceholderScreen(title: 'Вход'),
+        builder: (_, __) => const LoginScreen(),
       ),
       GoRoute(
         path: '/register',
-        builder: (_, __) => const _PlaceholderScreen(title: 'Регистрация'),
+        builder: (_, __) => const RegistrationScreen(),
       ),
       ShellRoute(
         builder: (_, __, child) => _TabScaffold(child: child),
@@ -84,6 +89,41 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
+class SplashScreen extends ConsumerStatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends ConsumerState<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(authNotifierProvider.notifier).checkSession();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.weekend, size: 80, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(height: 16),
+            Text('Глини', style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 24),
+            const CircularProgressIndicator(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TabScaffold extends StatelessWidget {
   final Widget child;
   const _TabScaffold({required this.child});
@@ -119,10 +159,3 @@ class _PlaceholderScreen extends StatelessWidget {
     );
   }
 }
-
-class AuthState {
-  final bool isAuthenticated;
-  const AuthState({this.isAuthenticated = false});
-}
-
-final authStateProvider = StateProvider<AuthState>((_) => const AuthState());
