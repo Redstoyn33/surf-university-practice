@@ -10,7 +10,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<Client?>> {
   final LocalStorage _storage;
 
   AuthNotifier(this._repository, this._storage)
-    : super(const AsyncValue.loading());
+    : super(const AsyncValue.data(null));
 
   Future<void> checkSession() async {
     final token = await _storage.getToken();

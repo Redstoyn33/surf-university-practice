@@ -19,13 +19,10 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/splash',
     redirect: (context, state) {
-      if (authState is AsyncLoading) return null;
-
       final isLoggedIn = authState is AsyncData && authState.value != null;
 
-      if (state.matchedLocation == '/splash') {
-        return isLoggedIn ? '/schedule' : '/login';
-      }
+      // SplashScreen управляет навигацией сам
+      if (state.matchedLocation == '/splash') return null;
 
       final isAuthRoute = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register';
@@ -121,9 +118,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      ref.read(authNotifierProvider.notifier).checkSession();
-    });
+    _checkAndNavigate();
+  }
+
+  Future<void> _checkAndNavigate() async {
+    await ref.read(authNotifierProvider.notifier).checkSession();
+    final authState = ref.read(authNotifierProvider);
+    final isLoggedIn = authState is AsyncData && authState.value != null;
+    if (isLoggedIn) {
+      context.go('/schedule');
+    } else {
+      context.go('/login');
+    }
   }
 
   @override
