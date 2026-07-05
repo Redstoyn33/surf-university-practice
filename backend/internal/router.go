@@ -1,0 +1,34 @@
+package internal
+
+import (
+	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
+)
+
+func NewRouter() *chi.Mux {
+	r := chi.NewRouter()
+
+	r.Use(chimw.Logger)
+	r.Use(chimw.Recoverer)
+	r.Use(chimw.RealIP)
+
+	r.Route("/auth", func(r chi.Router) {
+	})
+
+	r.Route("/slots", func(r chi.Router) {
+	})
+
+	r.Route("/bookings", func(r chi.Router) {
+	})
+
+	r.Route("/ratings", func(r chi.Router) {
+	})
+
+	r.Route("/masters", func(r chi.Router) {
+	})
+
+	r.Route("/programs", func(r chi.Router) {
+	})
+
+	return r
+}

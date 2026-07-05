@@ -1,4 +1,4 @@
-.PHONY: run migrate-up migrate-down build
+.PHONY: run build migrate-up migrate-down migrate-status test
 
 build:
 	go build -o bin/server ./cmd/server
@@ -14,3 +14,6 @@ migrate-down:
 
 migrate-status:
 	goose -dir migrations sqlite3 ./data/glini.db status
+
+test:
+	go test ./... -v -count=1
