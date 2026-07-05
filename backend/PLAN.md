@@ -1,4 +1,4 @@
-# Plan реализации бэкенда
+# Backend Implementation Checklist
 
 ## Архитектура
 
@@ -6,87 +6,13 @@
 Handler (HTTP) → Service (Business Logic) → Repository (SQLite via sqlx)
 ```
 
-- **Handler**: приём запросов, парсинг, валидация, вызов service, возврат JSON
-- **Service**: бизнес-правила (окно 4ч для отмены, 1–48ч для оценки, проверка мест)
-- **Repository**: sqlx-запросы к SQLite, маппинг строк в domain-структуры
+- **Handler**: парсинг запроса, валидация, вызов service, JSON-ответ
+- **Service**: бизнес-правила (окно отмены 4ч, окно оценки 1–48ч, проверка мест)
+- **Repository**: sqlx-запросы к SQLite, маппинг строк в struct
 
-**Точка входа**: `cmd/server/main.go` — инициализация БД, миграции, DI, запуск `http.Server`
+**Точка входа**: `cmd/server/main.go` — config → DB (sqlx + goose) → repository → service → handler → router → listen
 
----
-
-## Phase 1 — Critical (Auth + Schedule)
-
-### 1.1 Seed-данные
-Файл `internal/repository/seed.go` — заполняет таблицы `masters`, `programs`, `masters_programs`, `slots` тестовыми данными.
-
-### 1.2 Auth — FT-01, FT-02
-| Endpoint | Handler | Service | Repository |
-|---|---|---|---|
-| `POST /auth/register` | `handler/auth.go: Register` | валидация логина/пароля, bcrypt, создание клиента | `InsertClient` |
-| `POST /auth/login` | `handler/auth.go: Login` | проверка пароля, генерация JWT | `GetClientByLogin` |
-
-*JWT* — `golang-jwt/jwt/v5`, claims: `client_id`, `exp`, `iat`. Секрет из `AUTH_SECRET` env.
-
-### 1.3 Schedule — FT-03
-| Endpoint | Handler | Service | Repository |
-|---|---|---|---|
-| `GET /slots` | `handler/slot.go: ListSlots` | фильтры dateFrom/dateTo/masterId/programId | `QuerySlots` |
-| `GET /slots/{id}` | `handler/slot.go: GetSlot` | — | `GetSlotByID` |
-
-*Ответ включает вложенные `program` и `master`* (JOIN-ы).
-
-### 1.4 Masters & Programs (read-only) — FT-09, FT-10
-| Endpoint | Handler | Service | Repository |
-|---|---|---|---|
-| `GET /masters` | `handler/master.go: List` | — | `QueryMasters` |
-| `GET /masters/{id}` | `handler/master.go: Get` | — | `GetMasterByID` |
-| `GET /programs` | `handler/program.go: List` | — | `QueryPrograms` |
-| `GET /programs/{id}` | `handler/program.go: Get` | — | `GetProgramByID` |
-
-*Ответы включают списки ID программ/мастеров (из masters_programs).*
-
----
-
-## Phase 2 — Critical (Booking)
-
-### 2.1 Booking CRUD — FT-04, FT-05, FT-06
-
-| Endpoint | Handler | Service | Repository |
-|---|---|---|---|
-| `POST /bookings` | `handler/booking.go: Create` | проверить `available_spots > 0`, атомарный декремент + вставка (транзакция), проверка уникальности активной брони | `InsertBooking`, `DecrementSpots` |
-| `GET /bookings` | `handler/booking.go: ListMy` | фильтр по status | `QueryBookingsByClient` |
-| `GET /bookings/{id}` | `handler/booking.go: Get` | проверка: бронь принадлежит текущему клиенту | `GetBookingByID` |
-| `PATCH /bookings/{id}/cancel` | `handler/booking.go: Cancel` | проверить `≥4ч до date_time`, иначе 422. Статус → `отменена клиентом`, `available_spots++` (транзакция) | `UpdateBookingStatus`, `IncrementSpots` |
-
-### 2.2 Booking бизнес-правила
-
-- **Транзакция в Create**: `BEGIN → SELECT available_spots FOR UPDATE → проверка >0 → INSERT booking → UPDATE available_spots-1 → COMMIT`
-- **Отмена ≥4ч**: в service вычисляем разницу `slot.date_time - now()`, если `< 4h → return 422`
-- **Атомарность**: SQLite с `BEGIN IMMEDIATE` — гарантия от двойных бронь на уровне БД (уникальный индекс `idx_active_booking` — вторая линия защиты)
-
----
-
-## Phase 3 — Medium (Rating)
-
-### 3.1 Rating — FT-07
-
-| Endpoint | Handler | Service | Repository |
-|---|---|---|---|
-| `POST /ratings` | `handler/rating.go: Create` | проверить окно 1–48ч после end_time, проверить активную бронь клиента на этот слот, 409 если уже оценено | `InsertRating` |
-
-*Проверка окна*: `now() BETWEEN slot.end_time + 1h AND slot.end_time + 48h`.
-
----
-
-## Cross-cutting
-
-| Слой | Файл | Что делает |
-|---|---|---|
-| middleware/auth.go | JWT-проверка | Извлекает Bearer-токен, валидирует, кладёт `client_id` в контекст |
-| middleware/logger.go | request logging | slog + duration, request ID |
-| internal/config/config.go | env → struct | `AUTH_SECRET`, `DB_PATH`, `ADDR` |
-| internal/domain/*.go | entity structs + interfaces | domain-модели + контракты репозиториев |
-| cmd/server/main.go | bootstrap | config → DB (sqlx + goose) → repository → service → handler → router → listen |
+**Токен**: JWT (`golang-jwt/jwt/v5`), claims: `client_id`, `exp`, `iat`. Секрет из `AUTH_SECRET` env.
 
 ---
 
@@ -94,106 +20,216 @@ Handler (HTTP) → Service (Business Logic) → Repository (SQLite via sqlx)
 
 | Компонент | Выбор |
 |---|---|
-| HTTP | `chi` — stdlib-совместимый роутер, middleware chaining |
-| DB | `modernc.org/sqlite` — pure Go SQLite (без CGO) |
-| Query | `sqlx` — маппинг rows → struct, именованные параметры |
-| Миграции | `pressly/goose` — SQL-файлы с `-- +goose Up/Down`, встраивание через `embed` |
+| HTTP | `chi` |
+| DB | `modernc.org/sqlite` (pure Go, без CGO) |
+| Query | `sqlx` |
+| Миграции | `pressly/goose` (SQL-файлы, встраивание `embed`) |
 | JWT | `golang-jwt/jwt/v5` |
-| Валидация | `go-playground/validator` — теги в request DTO |
+| Валидация | `go-playground/validator` |
 | Логи | `log/slog` (stdlib) |
 | Тесты | `testing` + `testify` + `httptest` |
 
 ---
 
-## Структура реализуемых файлов
+## Итерация 0 — Скелет
+
+- [ ] `internal/config/config.go` — чтение env: `AUTH_SECRET`, `DB_PATH`, `ADDR`
+- [ ] `internal/domain/client.go` — `Client` struct + `ClientRepository` interface
+- [ ] `internal/domain/master.go` — `Master` struct + `MasterRepository` interface
+- [ ] `internal/domain/program.go` — `Program` struct + `ProgramRepository` interface
+- [ ] `internal/domain/slot.go` — `Slot` struct, `SlotFilter` + `SlotRepository` interface
+- [ ] `internal/domain/booking.go` — `Booking` struct + `BookingRepository` interface
+- [ ] `internal/domain/rating.go` — `Rating` struct + `RatingRepository` interface
+- [ ] `internal/repository/db.go` — подключение SQLite, PRAGMA foreign_keys, запуск goose миграций через `embed`
+- [ ] `internal/middleware/auth.go` — JWT middleware: Bearer → parse → validate → inject `client_id` in context
+- [ ] `internal/router.go` — chi router, группировка routes, подключение middleware
+- [ ] `cmd/server/main.go` — bootstrap: config → DB → repository → service → handler → router → listen
+- [ ] `Makefile` — цели `build`, `run`, `migrate-up`, `migrate-down`, `test`
+- [ ] **Verify**: `go build ./...` проходит, сервер стартует и отвечает 404 на неизвестный route
+
+---
+
+## Итерация 1 — Auth (FT-01, FT-02)
+
+### Repository
+- [ ] `internal/repository/client.go: InsertClient(client) (Client, error)` — INSERT + RETURNING id
+- [ ] `internal/repository/client.go: GetClientByLogin(login) (Client, error)` — SELECT by login
+
+### Service
+- [ ] `internal/service/auth.go: Register(login, password)` — валидация (login не пуст, password ≥ 6), bcrypt → hash, InsertClient, 409 на duplicate
+- [ ] `internal/service/auth.go: Login(login, password)` — GetClientByLogin, bcrypt.Compare, JWT (sub=client_id, exp=24h)
+
+### Handler
+- [ ] `internal/handler/auth.go: Register` — POST /auth/register → 201 + Client | 400 | 409
+- [ ] `internal/handler/auth.go: Login` — POST /auth/login → 200 + {token, client} | 401
+
+### Tests
+- [ ] Repository: InsertClient + GetClientByLogin (in-memory SQLite)
+- [ ] Repository: duplicate login → error
+- [ ] Service: Register — success case
+- [ ] Service: Register — duplicate login → error
+- [ ] Service: Login — wrong password → 401
+- [ ] Handler: POST /auth/register — 201, 400, 409 (httptest)
+- [ ] Handler: POST /auth/login — 200, 401 (httptest)
+- [ ] **Verify**: `curl POST /auth/register + /auth/login` работает end-to-end
+
+---
+
+## Итерация 2 — Schedule (FT-03, FT-09, FT-10)
+
+### Seed
+- [ ] `internal/repository/seed.go` — заполнить `masters`, `programs`, `masters_programs`, `slots` тестовыми данными (5–10 слотов на ближайшие дни)
+
+### Repository
+- [ ] `internal/repository/slot.go: QuerySlots(filter) ([]Slot, error)` — SELECT с JOIN program + master, фильтры dateFrom/dateTo/masterId/programId
+- [ ] `internal/repository/slot.go: GetSlotByID(id) (Slot, error)` — SELECT с JOIN
+- [ ] `internal/repository/master.go: QueryMasters() ([]Master, error)` — SELECT + список programIds
+- [ ] `internal/repository/master.go: GetMasterByID(id) (Master, error)` — SELECT + programIds
+- [ ] `internal/repository/program.go: QueryPrograms() ([]Program, error)` — SELECT + список masterIds
+- [ ] `internal/repository/program.go: GetProgramByID(id) (Program, error)` — SELECT + masterIds
+
+### Handler
+- [ ] `internal/handler/slot.go: ListSlots` — GET /slots?dateFrom=&dateTo=&masterId=&programId= → 200 + []Slot
+- [ ] `internal/handler/slot.go: GetSlot` — GET /slots/{id} → 200 + Slot | 404
+- [ ] `internal/handler/master.go: List` — GET /masters → 200 + []Master
+- [ ] `internal/handler/master.go: Get` — GET /masters/{id} → 200 + Master | 404
+- [ ] `internal/handler/program.go: List` — GET /programs → 200 + []Program
+- [ ] `internal/handler/program.go: Get` — GET /programs/{id} → 200 + Program | 404
+
+### Tests
+- [ ] Repository: QuerySlots с разными фильтрами
+- [ ] Repository: GetSlotByID — found + not found
+- [ ] Handler: GET /slots — 200 с пагинацией по датам
+- [ ] Handler: GET /slots — фильтр masterId/programId
+- [ ] Handler: GET /masters, /masters/{id} — 200
+- [ ] Handler: GET /programs, /programs/{id} — 200
+- [ ] **Verify**: полный цикл register → login → GET /slots с токеном
+
+---
+
+## Итерация 3 — Booking (FT-04, FT-05, FT-06)
+
+### Repository
+- [ ] `internal/repository/booking.go: InsertBooking(clientID, slotID, rentalSelected) (Booking, error)` — в составе транзакции
+- [ ] `internal/repository/booking.go: QueryBookingsByClient(clientID, statusFilter) ([]Booking, error)` — SELECT с JOIN slot + program + master
+- [ ] `internal/repository/booking.go: GetBookingByID(id) (Booking, error)` — SELECT с JOIN
+- [ ] `internal/repository/booking.go: UpdateBookingStatus(id, status, reason) error`
+- [ ] `internal/repository/slot.go: DecrementSpots(tx, slotID) error` — UPDATE available_spots - 1 WHERE available_spots > 0
+- [ ] `internal/repository/slot.go: IncrementSpots(tx, slotID) error` — UPDATE available_spots + 1
+
+### Service
+- [ ] `internal/service/booking.go: CreateBooking(clientID, slotID, rentalSelected)` — транзакция: проверка мест + нет активной брони → DecrementSpots → InsertBooking → COMMIT. 409 при конфликте
+- [ ] `internal/service/booking.go: CancelBooking(bookingID, clientID)` — проверка принадлежности, проверка `slot.date_time - now() ≥ 4h` (иначе 422), транзакция: UpdateBookingStatus → IncrementSpots
+- [ ] `internal/service/booking.go: GetMyBookings(clientID, statusFilter)` — QueryBookingsByClient
+
+### Handler
+- [ ] `internal/handler/booking.go: Create` — POST /bookings (auth) → 201 + Booking | 400 | 409 | 401
+- [ ] `internal/handler/booking.go: ListMy` — GET /bookings (auth) → 200 + []Booking | 401
+- [ ] `internal/handler/booking.go: Get` — GET /bookings/{id} (auth) → 200 + Booking | 404 | 401
+- [ ] `internal/handler/booking.go: Cancel` — PATCH /bookings/{id}/cancel (auth) → 200 | 422 | 404 | 401
+
+### Tests
+- [ ] Repository: InsertBooking — success
+- [ ] Repository: DecrementSpots при available=0 → error
+- [ ] Service: CreateBooking — полный success flow
+- [ ] Service: CreateBooking — нет мест → 409
+- [ ] Service: CreateBooking — двойная бронь → 409
+- [ ] Service: CancelBooking — ≥4h → success
+- [ ] Service: CancelBooking — <4h → 422
+- [ ] Service: CancelBooking — чужой bookingID → error
+- [ ] Handler: POST /bookings — 201, 409, 401 (httptest)
+- [ ] Handler: PATCH /bookings/{id}/cancel — 200, 422 (httptest)
+- [ ] **Verify**: register → login → book slot → GET /bookings → cancel → GET /bookings (status changed)
+
+---
+
+## Итерация 4 — Rating (FT-07)
+
+### Repository
+- [ ] `internal/repository/rating.go: InsertRating(clientID, masterID, slotID, score) (Rating, error)`
+- [ ] `internal/repository/rating.go: GetRatingByClientAndSlot(clientID, slotID) (Rating, error)` — для проверки 409 на дубликат
+
+### Service
+- [ ] `internal/service/rating.go: CreateRating(clientID, masterID, slotID, score)` — проверка: есть активная бронь на slot → проверка окна `end_time + 1h ≤ now ≤ end_time + 48h` → 422 если вне окна → InsertRating → 409 на дубликат
+
+### Handler
+- [ ] `internal/handler/rating.go: Create` — POST /ratings (auth) → 201 + Rating | 400 | 401 | 422 | 409
+
+### Tests
+- [ ] Service: CreateRating — success
+- [ ] Service: CreateRating — вне окна (рано/поздно) → 422
+- [ ] Service: CreateRating — нет активной брони → 422
+- [ ] Service: CreateRating — повторная оценка → 409
+- [ ] Handler: POST /ratings — 201, 422, 409 (httptest)
+- [ ] **Verify**: полный E2E: register → login → book → проходим время (mock) → rate → проверяем рейтинг мастера
+
+---
+
+## Итерация 5 — Прочее и полировка
+
+- [ ] `internal/middleware/logger.go` — request logging: method, path, duration, status
+- [ ] CORS middleware (chi built-in) — разрешить origin для мобильного клиента
+- [ ] Error handling: единый формат `{"error": "message"}` для всех 4xx/5xx
+- [ ] Panic recovery middleware
+- [ ] Graceful shutdown (`signal.NotifyContext`)
+- [ ] HTTP-таймауты (ReadTimeout, WriteTimeout, IdleTimeout)
+- [ ] **Verify**: полный интеграционный тест register → login → get slots → book → get bookings → cancel → book again → rate (сквозной через httptest)
+
+---
+
+## Реализация миграций (файлы уже созданы)
+
+- [x] `migrations/001_create_clients.sql`
+- [x] `migrations/002_create_masters.sql`
+- [x] `migrations/003_create_programs.sql`
+- [x] `migrations/004_create_masters_programs.sql`
+- [x] `migrations/005_create_slots.sql`
+- [x] `migrations/006_create_bookings.sql`
+- [x] `migrations/007_create_ratings.sql`
+
+---
+
+## Структура файлов после всех итераций
 
 ```
+cmd/server/main.go
 internal/
+├── config/config.go
 ├── domain/
-│   ├── client.go        # Client struct + ClientRepository interface
-│   ├── master.go        # Master struct + MasterRepository interface
-│   ├── program.go       # Program struct + ProgramRepository interface
-│   ├── slot.go          # Slot struct, SlotFilter + SlotRepository interface
-│   ├── booking.go       # Booking struct + BookingRepository interface
-│   └── rating.go        # Rating struct + RatingRepository interface
-├── handler/
-│   ├── auth.go          # Register, Login
-│   ├── slot.go          # ListSlots, GetSlot
-│   ├── booking.go       # Create, ListMy, Get, Cancel
-│   ├── master.go        # List, Get
-│   ├── program.go       # List, Get
-│   └── rating.go        # Create
-├── service/
-│   ├── auth.go          # Register, Login
-│   ├── booking.go       # CreateBooking, CancelBooking
-│   └── rating.go        # CreateRating
+│   ├── client.go
+│   ├── master.go
+│   ├── program.go
+│   ├── slot.go
+│   ├── booking.go
+│   └── rating.go
 ├── repository/
-│   ├── client.go        # sqlx implementation
-│   ├── booking.go       # sqlx implementation
-│   ├── slot.go          # sqlx implementation
-│   ├── master.go        # sqlx implementation
-│   ├── program.go       # sqlx implementation
-│   ├── rating.go        # sqlx implementation
-│   └── db.go            # goose migrations runner, PRAGMA foreign_keys
+│   ├── db.go
+│   ├── seed.go
+│   ├── client.go
+│   ├── master.go
+│   ├── program.go
+│   ├── slot.go
+│   ├── booking.go
+│   └── rating.go
+├── service/
+│   ├── auth.go
+│   ├── booking.go
+│   └── rating.go
+├── handler/
+│   ├── auth.go
+│   ├── slot.go
+│   ├── master.go
+│   ├── program.go
+│   ├── booking.go
+│   └── rating.go
 ├── middleware/
-│   └── auth.go          # JWT middleware
-├── config/
-│   └── config.go        # env → struct
-└── router.go            # chi router setup with all routes
+│   ├── auth.go
+│   └── logger.go
+└── router.go
+migrations/
+├── 001_create_clients.sql
+├── ...
+└── 007_create_ratings.sql
+go.mod
+Makefile
 ```
-
----
-
-## Бизнес-правила (алгоритмы)
-
-### Register
-1. Валидация: login не пуст, password ≥ 6 символов
-2. bcrypt(password) → hash
-3. INSERT clients → если `UNIQUE constraint` → 409
-4. 201 + Client
-
-### Login
-1. SELECT client by login → не найден → 401
-2. bcrypt.CompareHashAndPassword → не совпал → 401
-3. JWT с `sub=client_id` + `exp=24h`
-4. 200 + `{token, client}`
-
-### CreateBooking (транзакция)
-```
-BEGIN IMMEDIATE
-  SELECT available_spots FROM slots WHERE id=? → 0? → 409
-  SELECT id FROM bookings WHERE client_id=? AND slot_id=? AND status='активна' → found? → 409
-  INSERT INTO bookings (client_id, slot_id, rental_selected) VALUES (?,?,?)
-  UPDATE slots SET available_spots = available_spots - 1 WHERE id=?
-COMMIT
-```
-
-### CancelBooking (транзакция)
-```
-SELECT s.date_time, s.end_time FROM bookings b JOIN slots s ON b.slot_id=s.id WHERE b.id=?
-→ now + 4h > date_time? → 422
-BEGIN IMMEDIATE
-  UPDATE bookings SET status='отменена клиентом' WHERE id=?
-  UPDATE slots SET available_spots = available_spots + 1 WHERE id=?
-COMMIT
-```
-
-### CreateRating
-```
-SELECT s.end_time FROM bookings b JOIN slots s ON b.slot_id=s.id
-  WHERE b.client_id=? AND b.slot_id=? AND b.status='активна'
-→ no active booking? → 422
-
-end_time + 1h ≤ now ≤ end_time + 48h? → нет? → 422
-
-INSERT INTO ratings → UNIQUE(client_id, slot_id)? → 409
-```
-
----
-
-## Тесты
-
-- **Repository**: in-memory SQLite (`:memory:`) с goose UP, тесты транзакций
-- **Handler**: httptest.Server + mock service (через интерфейсы domain)
-- **Service**: юнит-тесты бизнес-правил (окно отмены, окно оценки)
-- **Интеграционные**: полный flow (register → login → book → cancel → rate)
