@@ -1,0 +1,731 @@
+openapi: 3.1.0
+info:
+  title: Pottery Workshop Booking API
+  version: 1.0.0
+  description: |
+    API для мобильного приложения записи на мастер-классы в гончарную мастерскую.
+    Бэкенд является black-box — приложение потребляет данные и отправляет команды.
+
+    ## Функциональные требования
+    - Регистрация и аутентификация клиентов (ФТ-01, ФТ-02)
+    - Просмотр расписания слотов (ФТ-03)
+    - Создание брони с опциональным прокатом (ФТ-04)
+    - Просмотр и отмена своих броней (ФТ-05, ФТ-06)
+    - Оценка мастера после посещения (ФТ-07)
+    - Просмотр информации о мастерах (ФТ-09)
+    - Просмотр информации о программах (ФТ-10)
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production server (placeholder)
+
+paths:
+  /auth/register:
+    post:
+      operationId: registerClient
+      summary: Регистрация нового клиента
+      description: Создаёт учётную запись клиента по логину и паролю. Логином может быть email или телефон.
+      tags:
+        - Аутентификация
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Клиент успешно зарегистрирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '409':
+          description: Логин уже занят
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Некорректные данные (неверный формат логина, слабый пароль)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      operationId: loginClient
+      summary: Вход зарегистрированного клиента
+      description: Аутентифицирует клиента по логину и паролю, возвращает токен сессии.
+      tags:
+        - Аутентификация
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Неверный логин или пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /slots:
+    get:
+      operationId: getSlots
+      summary: Список слотов расписания
+      description: Возвращает доступные слоты на указанный период. По умолчанию — 7 дней.
+      tags:
+        - Расписание
+      parameters:
+        - name: dateFrom
+          in: query
+          required: false
+          description: Начало периода (включительно). Формат ISO 8601.
+          schema:
+            type: string
+            format: date
+        - name: dateTo
+          in: query
+          required: false
+          description: Конец периода (включительно). Формат ISO 8601.
+          schema:
+            type: string
+            format: date
+        - name: masterId
+          in: query
+          required: false
+          description: Фильтр по мастеру
+          schema:
+            type: integer
+        - name: programId
+          in: query
+          required: false
+          description: Фильтр по программе
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Список слотов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Slot'
+
+  /slots/{slotId}:
+    get:
+      operationId: getSlotById
+      summary: Детальная информация о слоте
+      description: Возвращает полную информацию о конкретном слоте, включая данные о программе и мастере.
+      tags:
+        - Расписание
+      parameters:
+        - name: slotId
+          in: path
+          required: true
+          description: ID слота
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Информация о слоте
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Slot'
+        '404':
+          description: Слот не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /bookings:
+    get:
+      operationId: getMyBookings
+      summary: Список броней текущего клиента
+      description: Возвращает список броней авторизованного клиента.
+      tags:
+        - Брони
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Фильтр по статусу брони
+          schema:
+            type: string
+            enum:
+              - активна
+              - отменена клиентом
+              - отменена мастерской
+      responses:
+        '200':
+          description: Список броней
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+        '401':
+          description: Требуется аутентификация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      operationId: createBooking
+      summary: Создание брони
+      description: Создаёт бронь на слот. Бэкенд гарантирует атомарную проверку свободных мест.
+      tags:
+        - Брони
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+      responses:
+        '201':
+          description: Бронь успешно создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          description: Некорректные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Требуется аутентификация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Нет свободных мест или двойная бронь
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /bookings/{bookingId}:
+    get:
+      operationId: getBookingById
+      summary: Детальная информация о брони
+      description: Возвращает полную информацию о брони, включая данные слота, программы и мастера.
+      tags:
+        - Брони
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          description: ID брони
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Информация о брони
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '401':
+          description: Требуется аутентификация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Бронь не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /bookings/{bookingId}/cancel:
+    patch:
+      operationId: cancelBooking
+      summary: Отмена брони клиентом
+      description: |
+        Отменяет бронь. Если до начала слота 4+ часа — отмена бесплатна.
+        Если менее 4 часов — отказ с предложением обратиться в поддержку (ошибка 422).
+      tags:
+        - Брони
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          description: ID брони
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Бронь отменена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '401':
+          description: Требуется аутентификация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Бронь не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Отмена невозможна — менее 4 часов до начала. Клиенту предлагается обратиться в поддержку.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ratings:
+    post:
+      operationId: createRating
+      summary: Оценка мастера
+      description: |
+        Создаёт оценку мастера после посещения мастер-класса.
+        Оценка доступна в окне от 1 до 48 часов после окончания слота.
+      tags:
+        - Оценки
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRatingRequest'
+      responses:
+        '201':
+          description: Оценка сохранена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rating'
+        '400':
+          description: Некорректные данные (оценка вне диапазона 1–5)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Требуется аутентификация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Оценка недоступна — вне временного окна (раньше 1 ч или позже 48 ч после окончания слота)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /masters:
+    get:
+      operationId: getMasters
+      summary: Список мастеров
+      description: Возвращает список всех мастеров с краткой информацией.
+      tags:
+        - Мастера
+      responses:
+        '200':
+          description: Список мастеров
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Master'
+
+  /masters/{masterId}:
+    get:
+      operationId: getMasterById
+      summary: Профиль мастера
+      description: Возвращает полную информацию о мастере, включая список проводимых программ.
+      tags:
+        - Мастера
+      parameters:
+        - name: masterId
+          in: path
+          required: true
+          description: ID мастера
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Информация о мастере
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Master'
+        '404':
+          description: Мастер не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /programs:
+    get:
+      operationId: getPrograms
+      summary: Список программ
+      description: Возвращает список всех программ мастер-классов.
+      tags:
+        - Программы
+      responses:
+        '200':
+          description: Список программ
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Program'
+
+  /programs/{programId}:
+    get:
+      operationId: getProgramById
+      summary: Информация о программе
+      description: Возвращает детальную информацию о программе, включая список мастеров, которые её ведут.
+      tags:
+        - Программы
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          description: ID программы
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Информация о программе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Program'
+        '404':
+          description: Программа не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Токен сессии, полученный при входе.
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Описание ошибки
+
+    RegisterRequest:
+      type: object
+      required:
+        - login
+        - password
+      properties:
+        login:
+          type: string
+          description: Email или телефон клиента
+          example: client@example.com
+        password:
+          type: string
+          description: Пароль (минимум 6 символов)
+          format: password
+          example: securePass123
+
+    LoginRequest:
+      type: object
+      required:
+        - login
+        - password
+      properties:
+        login:
+          type: string
+          description: Email или телефон клиента
+          example: client@example.com
+        password:
+          type: string
+          format: password
+          example: securePass123
+
+    LoginResponse:
+      type: object
+      required:
+        - token
+        - client
+      properties:
+        token:
+          type: string
+          description: JWT-токен для авторизации последующих запросов
+        client:
+          $ref: '#/components/schemas/Client'
+
+    Client:
+      type: object
+      required:
+        - id
+        - login
+        - createdAt
+      properties:
+        id:
+          type: integer
+          description: Уникальный идентификатор клиента
+        login:
+          type: string
+          description: Email или телефон
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата регистрации
+
+    Master:
+      type: object
+      required:
+        - id
+        - name
+        - photo
+        - rating
+        - level
+        - programIds
+      properties:
+        id:
+          type: integer
+          description: Уникальный идентификатор мастера
+        name:
+          type: string
+          description: ФИО мастера
+        photo:
+          type: string
+          format: uri
+          description: Ссылка на фото мастера
+        rating:
+          type: number
+          format: float
+          minimum: 1.0
+          maximum: 5.0
+          description: Агрегированный рейтинг мастера
+        level:
+          type: string
+          enum:
+            - новичок
+            - опытный
+          description: Уровень мастера
+        programIds:
+          type: array
+          items:
+            type: integer
+          description: ID программ, которые ведёт мастер
+
+    Program:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - maxCapacity
+        - masterIds
+      properties:
+        id:
+          type: integer
+          description: Уникальный идентификатор программы
+        name:
+          type: string
+          description: Название программы
+        description:
+          type: string
+          description: Описание мастер-класса
+        maxCapacity:
+          type: integer
+          description: Максимальное количество участников (новичковые ≤ 6, гончарный круг ≤ 10)
+        masterIds:
+          type: array
+          items:
+            type: integer
+          description: ID мастеров, проводящих эту программу
+
+    Slot:
+      type: object
+      required:
+        - id
+        - dateTime
+        - endTime
+        - program
+        - master
+        - totalSpots
+        - availableSpots
+        - rentalAvailable
+        - rentalPrice
+      properties:
+        id:
+          type: integer
+          description: Уникальный идентификатор слота
+        dateTime:
+          type: string
+          format: date-time
+          description: Дата и время начала
+        endTime:
+          type: string
+          format: date-time
+          description: Дата и время окончания (~2–2.5 ч после начала)
+        program:
+          $ref: '#/components/schemas/Program'
+          description: Программа мастер-класса
+        master:
+          $ref: '#/components/schemas/Master'
+          description: Мастер, проводящий слот
+        totalSpots:
+          type: integer
+          description: Общая вместимость слота
+        availableSpots:
+          type: integer
+          description: Свободные места
+        rentalAvailable:
+          type: boolean
+          description: Доступен ли прокат оборудования
+        rentalPrice:
+          type: number
+          description: Стоимость проката оборудования
+
+    Booking:
+      type: object
+      required:
+        - id
+        - clientId
+        - slot
+        - status
+        - rentalSelected
+        - createdAt
+      properties:
+        id:
+          type: integer
+          description: Уникальный идентификатор брони
+        clientId:
+          type: integer
+          description: ID клиента
+        slot:
+          $ref: '#/components/schemas/Slot'
+          description: Слот, на который сделана бронь
+        status:
+          type: string
+          enum:
+            - активна
+            - отменена клиентом
+            - отменена мастерской
+          description: Статус брони
+        rentalSelected:
+          type: boolean
+          description: Выбран ли прокат оборудования
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания брони
+        cancellationReason:
+          type: string
+          nullable: true
+          description: Причина отмены (заполняется при отмене мастерской)
+
+    CreateBookingRequest:
+      type: object
+      required:
+        - slotId
+      properties:
+        slotId:
+          type: integer
+          description: ID слота для бронирования
+        rentalSelected:
+          type: boolean
+          default: false
+          description: Выбрать прокат оборудования
+
+    Rating:
+      type: object
+      required:
+        - id
+        - clientId
+        - masterId
+        - slotId
+        - score
+        - createdAt
+      properties:
+        id:
+          type: integer
+          description: Уникальный идентификатор оценки
+        clientId:
+          type: integer
+          description: ID клиента
+        masterId:
+          type: integer
+          description: ID мастера
+        slotId:
+          type: integer
+          description: ID слота
+        score:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: Оценка мастера (1–5)
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата оценки
+
+    CreateRatingRequest:
+      type: object
+      required:
+        - masterId
+        - slotId
+        - score
+      properties:
+        masterId:
+          type: integer
+          description: ID мастера
+        slotId:
+          type: integer
+          description: ID посещённого слота
+        score:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: Оценка (1–5)
