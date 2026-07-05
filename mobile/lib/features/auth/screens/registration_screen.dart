@@ -28,10 +28,14 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    ref.read(authNotifierProvider.notifier).register(
+    await ref.read(authNotifierProvider.notifier).register(
       _loginController.text.trim(),
       _passwordController.text,
     );
+    final authState = ref.read(authNotifierProvider);
+    if (authState is AsyncData && authState.value != null) {
+      context.go('/schedule');
+    }
   }
 
   @override

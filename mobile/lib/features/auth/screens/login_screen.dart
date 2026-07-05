@@ -26,10 +26,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    ref.read(authNotifierProvider.notifier).login(
+    await ref.read(authNotifierProvider.notifier).login(
       _loginController.text.trim(),
       _passwordController.text,
     );
+    if (!mounted) return;
+    final authState = ref.read(authNotifierProvider);
+    if (authState is AsyncData && authState.value != null) {
+      context.go('/schedule');
+    }
   }
 
   @override

@@ -14,11 +14,10 @@ import '../features/booking/screens/booking_detail_screen.dart';
 import '../features/ratings/screens/rate_master_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authNotifierProvider);
-
   return GoRouter(
     initialLocation: '/splash',
     redirect: (context, state) {
+      final authState = ref.read(authNotifierProvider);
       final isLoggedIn = authState is AsyncData && authState.value != null;
 
       // SplashScreen управляет навигацией сам
